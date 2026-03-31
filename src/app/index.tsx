@@ -50,11 +50,4 @@ const styles = StyleSheet.create({
     width: 300,
     height: 300,
   },
-  wordmark: {
-    fontStyle: "italic",
-    fontSize: 54,
-    color: "#2C2C2C",
-    letterSpacing: 1.5,
-    marginTop: 28,
-  },
 });
