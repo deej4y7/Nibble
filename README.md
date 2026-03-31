@@ -165,7 +165,7 @@ nibble/
 **Donnel Jan C. Alca**
 BS Information Technology — Centro Escolar University
 
-- GitHub: [@your-github-username](https://github.com/your-github-username)
+- GitHub: [@deej4y7](https://github.com/deej4y7)
 
 ---
 
