@@ -1,24 +1,27 @@
-import React, { useRef, useState } from "react";
-import {
-  View,
-  Text,
-  StyleSheet,
-  FlatList,
-  TouchableOpacity,
-  Dimensions,
-  StatusBar,
-  Image,
-  NativeSyntheticEvent,
-  NativeScrollEvent,
-} from "react-native";
 import { useRouter } from "expo-router";
-import { useFonts, Caveat_400Regular } from "@expo-google-fonts/caveat";
+import React, { useState } from "react";
+import {
+  Dimensions,
+  Image,
+  StatusBar,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from "react-native";
+import Animated, {
+  Extrapolation,
+  interpolate,
+  SharedValue,
+  useAnimatedStyle,
+  useSharedValue,
+} from "react-native-reanimated";
+import Carousel from "react-native-reanimated-carousel";
 
 const { width } = Dimensions.get("window");
 
 // ---------------------------------------------------------------------------
 // Carousel slide data
-// Replace the `image` requires with your actual illustration assets
 // ---------------------------------------------------------------------------
 const SLIDES = [
   {
@@ -39,9 +42,51 @@ const SLIDES = [
   {
     id: "4",
     image: require("../../assets/images/motorcycle.png"),
-    caption: "fast app and easy delivery (may vary)",
-  }
+    caption: "FAST APP AND EASY DELIVERY (MAY VARY)",
+  },
 ];
+
+// ---------------------------------------------------------------------------
+// SlidingDot
+// Each dot watches the carousel's live scroll progress and smoothly
+// grows/shrinks in real time as the user drags — not just on snap.
+// ---------------------------------------------------------------------------
+function SlidingDot({
+  index,
+  progressValue,
+  total,
+}: {
+  index: number;
+  progressValue: SharedValue<number>;
+  total: number;
+}) {
+  const animStyle = useAnimatedStyle(() => {
+    // How far is this dot from the current scroll position?
+    // e.g. if progress = 1.4 and this dot is index 1, distance = 0.4
+    // We use modulo (%) so it works correctly with looping
+    const distance = Math.abs((progressValue.value % total) - index);
+
+    // Map distance → width:  0 = active (20px),  1 = inactive (8px)
+    const dotWidth = interpolate(
+      distance,
+      [0, 1],
+      [20, 8],
+      Extrapolation.CLAMP,
+    );
+
+    // Map distance → opacity:  0 = fully visible,  1 = faded
+    const opacity = interpolate(
+      distance,
+      [0, 1],
+      [1, 0.3],
+      Extrapolation.CLAMP,
+    );
+
+    return { width: dotWidth, opacity };
+  });
+
+  return <Animated.View style={[styles.dot, animStyle]} />;
+}
 
 // ---------------------------------------------------------------------------
 // Onboarding Screen
@@ -49,20 +94,16 @@ const SLIDES = [
 export default function Onboarding() {
   const router = useRouter();
   const [activeIndex, setActiveIndex] = useState(0);
-  const flatListRef = useRef<FlatList>(null);
-  const [fontsLoaded] = useFonts({ Caveat_400Regular });
 
-  // Track which slide is visible
-  const onScroll = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
-    const index = Math.round(e.nativeEvent.contentOffset.x / width);
-    setActiveIndex(index);
-  };
+  // progressValue tracks the exact scroll position of the carousel in real time
+  // It starts at 0 and becomes 1.0, 2.0, 3.0 etc. as you move between slides
+  const progressValue = useSharedValue(0);
 
   return (
     <View style={styles.root}>
       <StatusBar barStyle="dark-content" backgroundColor="#FAFAFA" />
 
-      {/* ── Top: Logo icon + Wordmark ── */}
+      {/* ── Header: logo icon ── */}
       <View style={styles.header}>
         <Image
           source={require("../../assets/images/logo.png")}
@@ -72,40 +113,48 @@ export default function Onboarding() {
       </View>
 
       {/* ── Carousel ── */}
-      <FlatList
-        ref={flatListRef}
-        data={SLIDES}
-        keyExtractor={(item) => item.id}
-        horizontal
-        pagingEnabled
-        showsHorizontalScrollIndicator={false}
-        onScroll={onScroll}
-        scrollEventThrottle={16}
-        renderItem={({ item }) => (
-          <View style={styles.slide}>
-            <Image
-              source={item.image}
-              style={styles.slideImage}
-              resizeMode="contain"
-            />
-            <Text style={styles.caption}>{item.caption}</Text>
-          </View>
-        )}
-      />
+      <View style={{ flex: 1 }}>
+        <Carousel
+          loop
+          width={width}
+          height={width * 1.2}
+          autoPlay={true}
+          autoPlayInterval={3000}
+          data={SLIDES}
+          scrollAnimationDuration={1000}
+          onSnapToItem={(index) => setActiveIndex(index)}
+          onProgressChange={(_, absoluteProgress) => {
+            // absoluteProgress updates every frame as the user drags
+            // This is what drives the dot animation in real time
+            progressValue.value = absoluteProgress;
+          }}
+          renderItem={({ item }) => (
+            <View style={styles.slide}>
+              <Image
+                source={item.image}
+                style={styles.slideImage}
+                resizeMode="contain"
+              />
+              <Text style={styles.caption}>{item.caption}</Text>
+            </View>
+          )}
+        />
+      </View>
 
-      {/* ── Dot indicators ── */}
+      {/* ── Sliding dot indicators ── */}
       <View style={styles.dotsRow}>
         {SLIDES.map((_, i) => (
-          <View
+          <SlidingDot
             key={i}
-            style={[styles.dot, i === activeIndex && styles.dotActive]}
+            index={i}
+            progressValue={progressValue}
+            total={SLIDES.length}
           />
         ))}
       </View>
 
       {/* ── Buttons ── */}
       <View style={styles.buttonArea}>
-        {/* LOGIN + SIGNUP side by side */}
         <View style={styles.row}>
           <TouchableOpacity
             style={styles.btnPrimary}
@@ -124,7 +173,6 @@ export default function Onboarding() {
           </TouchableOpacity>
         </View>
 
-        {/* GUEST below */}
         <TouchableOpacity
           style={styles.btnGuest}
           onPress={() => router.push("/home")}
@@ -143,32 +191,33 @@ export default function Onboarding() {
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: "#FAFAFA",
+    backgroundColor: "#FFFFFF",
     alignItems: "center",
   },
 
   // Header
   header: {
     alignItems: "center",
-    marginTop: 48,
-    height: 100,
+    height: 160,
     justifyContent: "center",
   },
   headerIcon: {
-    width: 200,
-    height: 200,
+    width: 160,
+    height: 160,
   },
 
   // Carousel
   slide: {
+    marginTop: 28,
+    marginBottom: 28,
     width,
     alignItems: "center",
     justifyContent: "center",
-    paddingHorizontal: 40
+    paddingHorizontal: 40,
   },
   slideImage: {
-    width: 220,
-    height: 220,
+    width: 240,
+    height: 240,
   },
   caption: {
     marginTop: 32,
@@ -178,7 +227,6 @@ const styles = StyleSheet.create({
     textAlign: "center",
     letterSpacing: 0.5,
     lineHeight: 26,
-    fontFamily: "System",
     textTransform: "uppercase",
   },
 
@@ -187,24 +235,19 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     gap: 8,
     marginTop: 20,
-    marginBottom: 12,
+    marginBottom: 20,
   },
   dot: {
-    width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: "#D9D9D9",
-  },
-  dotActive: {
     backgroundColor: "#F5A623",
-    width: 20,
   },
 
   // Buttons
   buttonArea: {
     width: "100%",
-    paddingHorizontal: 32,
-    paddingBottom: 48,
+    paddingHorizontal: 22,
+    paddingBottom: 38,
     gap: 12,
     alignItems: "center",
   },

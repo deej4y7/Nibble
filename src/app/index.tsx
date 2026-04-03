@@ -1,14 +1,12 @@
 import React, { useEffect } from "react";
 import { View, Text, StyleSheet, StatusBar, Image } from "react-native";
 import { useRouter } from "expo-router";
-import { useFonts, Caveat_400Regular } from "@expo-google-fonts/caveat";
 
 // ---------------------------------------------------------------------------
 // Splash Screen 1 — Static, no animation, immediately goes to splash-two
 // ---------------------------------------------------------------------------
 export default function SplashScreen() {
   const router = useRouter();
-  const [fontsLoaded] = useFonts({ Caveat_400Regular });
 
   useEffect(() => {
     // Show briefly then hand off to Splash 2 which has the animation
